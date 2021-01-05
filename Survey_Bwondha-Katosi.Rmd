@@ -179,7 +179,8 @@ data_off %>% janitor::tabyl(X.11,X.10) %>%
 
 In each Landing site, officers were approach to get a general perspective of the 
 condition in the community. Questions about size of the community were implemented.
-Along with it, we made some other question that allow to get a glimpse into the seasonality of the fishing activities. It is important to note that January is regarded
+Along with it, we made some other question that allow to get a glimpse into the seasonality 
+of the fishing activities. It is important to note that January is regarded
 as a **Low** catch season, and November as a **High** catch one. Also we asked 
 about the normal actions that people take in during seasons; this should allow to 
 give context to the answers and actions that fishers report for the asked periods.
@@ -1115,9 +1116,6 @@ freq.table(data_com,"X.411","Quality Interviewee")
 
 <!-- # Notes -->
 
-<!-- The main point collaborate on the results, of the other team. -->
-
-<!-- - -->
 <!-- Suggestions: -->
 
 <!-- 1. Need to research gaps, new ideas for research proposal. -->

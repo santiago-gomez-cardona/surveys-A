@@ -1,0 +1,1133 @@
+---
+title: "Survey Bwondha - Katosi"
+author: ''
+date: "12/17/2020"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+abstract: 'This document present a first compilation of the results of the survey
+  implemented among 51 Nile Perch fishers in Bowandha, and Katosi (Uganda) in december
+  11th and 12th, 2020. Fishers report affectations in their income during 2020 that
+  are not yet fully recover. This is supported by changes in the fishing practices
+  and their outcomes, chances in prices, and changes in the spectrum of income
+  activities that households undertake after COVID-19 affectations 
+  and flooding started'
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(fig.width=9, fig.height=6,
+                      echo = FALSE, warning=FALSE, message=FALSE)
+library(tidyverse)
+library(readxl)
+library(lubridate)
+library(pander)
+```
+
+```{r data load, include=FALSE}
+setwd("C:/Users/Gomez/Dropbox/Heidelberg/Survey/Data_analysis") # Chance to local folder as approppriate. 
+data_com = read_excel("Results/Survey_community_II_-_latest_version_-_English_en_-_2020-12-15-10-33-02.xlsx") 
+data_off = read_excel("Results/Survey_officer_II_-_latest_version_-_English_en_-_2020-12-15-10-33-30.xlsx")
+
+data_com = data_com %>% 
+  mutate(time_starts = ymd_hms(start, tz = "UTC") ) %>% 
+  mutate(time_ends = ymd_hms(end, tz = "UTC") ) %>%
+  mutate(time_starts = time_starts + hours(3), # update to EAT time
+         time_ends = time_ends + hours(3))
+  
+
+data_off = data_off %>% 
+  mutate(time_starts = ymd_hms(start, tz = "UTC") ) %>% 
+  mutate(time_ends = ymd_hms(end, tz = "UTC") ) %>%
+  mutate(time_starts = time_starts + hours(3), # update to EAT time
+         time_ends = time_ends + hours(3))
+  
+
+
+#write_csv(data_com, 'data_com-raw.csv')
+# write_csv(data_off, 'data_off-raw.csv')
+
+```
+
+
+
+```{r preliminaries, include=FALSE}
+
+## CREATE CUSTOM NAMES TO THE DATABASE
+
+namesc = as.data.frame(names(data_com))
+  write_csv(namesc, 'data_com-names.csv')
+  
+  data_com = type_convert(data_com) 
+  
+  data_com = data_com %>% janitor::clean_names()
+  
+  n = length(names(data_com))
+  prefix = "X"
+  suffix = seq(1:n)
+  my.names = paste(prefix, suffix, sep = ".")
+  
+  names(data_com) = my.names
+
+nameso = as.data.frame(names(data_off))
+  write_csv(nameso, 'data_off-names.csv')
+  
+  data_off = type_convert(data_off) 
+  
+  data_off = data_off %>% janitor::clean_names()
+  
+  n = length(names(data_off))
+  prefix = "X"
+  suffix = seq(1:n)
+  my.names = paste(prefix, suffix, sep = ".")
+  
+  names(data_off) = my.names
+
+
+# call names[#,] to see the long name of a variable. 
+## FUNCTIONS CREATED FOR TABLES AND BASIC HISTOGRAMS
+histo.graph = function(Data,Variable,Tabname = Variable) {
+  ggplot(data = Data) +
+    geom_histogram(aes(x= Variable, y = ..density..)) +
+    xlab(Tabname)
+}
+
+cont.table = function(Data,Variable,Tabname = Variable) {
+  table = Data %>%  
+                    summarize(mean = mean(Variable, na.rm = TRUE),
+                              sd = sd(Variable, na.rm = TRUE),
+                              min = min(Variable, na.rm = TRUE),
+                              max = max(Variable, na.rm = TRUE),
+                              obs = n())
+  pander(table, caption = paste('Basic stats', Tabname))
+}
+
+freq.table = function (Data,Variable,Name,Tabname = Variable) {
+    table = Data %>% janitor::tabyl(Variable)  %>%
+      janitor::adorn_pct_formatting()
+    names(table)[1] = Tabname
+    pander(table, caption = Name)
+}
+
+freq.2table = function (Data,Variable1,Variable2) {
+    table = Data %>% janitor::tabyl(Variable1,Variable2)  %>%
+      janitor::adorn_pct_formatting()
+    #names(table)[1] = Tabname
+    pander(table) #, caption = paste(Name1," x ", Name2))
+}
+
+
+
+transpose_df <- function(df) {
+  t_df <- data.table::transpose(df)
+  colnames(t_df) <- rownames(df)
+  rownames(t_df) <- colnames(df)
+  t_df <- t_df %>%
+    tibble::rownames_to_column(.data = .) %>%
+    tibble::as_tibble(.)
+  return(t_df)
+}
+
+```
+
+
+
+# Intro
+
+A survey was designed to collect data on the affectations that Nile Perch
+fishing communities suffer due to the extraordinary circumstances of 2020.
+Government actions to protect public Health affected normal life in
+landing sites at the same time that markets were affected, potentially reducing
+the revenues that people could make of different activities. At the same time,
+flooding could have affected the ability to go into the lake, and even to stay 
+at the landing site.
+
+Data collection took place in Katosi and Bhownda, this allowed us to get a first 
+picture of the affectation and test how people answer the proposed questions. The
+first two tables provide the information about the location and the number of 
+community responses. 
+
+```{r data exploration times, }
+
+table = data_com %>% select(X.420) %>% 
+  transmute(Day = day(X.420)) %>%
+            group_by(Day) %>% summarise(n = n())
+
+table = cbind(c("Bwondha","Katosi"),table)
+
+names(table) = c("Location","Day (Dec.)","Obs.")
+
+pander(table, caption = 'Number of community by day' )
+
+# table = data_off %>% select(X.141) %>% 
+#   transmute(Day = day(X.141)) %>%
+#             group_by(Day) %>% summarise(n = n())
+# 
+# pander(table, caption = 'Number of officer surveys by day' )
+
+# End times are not the times in which the interview was finished but when the collectors finally approved each one
+
+data_off %>% janitor::tabyl(X.11,X.10) %>%
+    pander(caption = "Community and Region")
+
+```
+
+
+# Landing Site information
+
+In each Landing site, officers were approach to get a general perspective of the 
+condition in the community. Questions about size of the community were implemented.
+Along with it, we made some other question that allow to get a glimpse into the seasonality of the fishing activities. It is important to note that January is regarded
+as a **Low** catch season, and November as a **High** catch one. Also we asked 
+about the normal actions that people take in during seasons; this should allow to 
+give context to the answers and actions that fishers report for the asked periods.
+
+```{r}
+
+ table = data_off %>% select(X.11,X.12,X.13,X.14,X.15)
+    names(table) = c("Community","Population","# Nile P. Fishers","# Boat owners", "# Boats")
+    pander(table, caption = "People living in the community")
+
+ table = data_off %>% select(X.11,X.94,X.95,X.96,X.97,X.98,X.99,X.100,X.101,X.102,X.103,X.104,X.105)
+    names(table) = c("Community","Jan","Feb","March","April","May","Jun","Jul","Aug","Sept","Oct","Nov","Dec")
+    pander(table, caption = "High Catch months", split.table = Inf)    
+        
+ table = data_off %>% select(X.11,X.107:X.118)
+    names(table) = c("Community","Jan","Feb","March","April","May","Jun","Jul","Aug","Sept","Oct","Nov","Dec")
+    pander(table, caption = "Low Catch months", split.table = Inf)       
+    
+ table = data_off %>% select(X.11,X.120:X.126)
+    names(table) = c("Community","Increase fishing","Decrease fishing","Move other places to fish",
+                     "People come to fish here","Decrease non-fishing act.","Increase non-fishing act.",
+                     "Move other place to non-fishing activities")
+    table = transpose_df(table)
+    pander(table, caption = "Actions during high catch periods")   
+    
+  table = data_off %>% select(X.11,X.128:X.134)
+    names(table) = c("Community","Increase fishing","Decrease fishing","Move other places to fish",
+                     "People come to fish here","Decrease non-fishing act.","Increase non-fishing act.",
+                     "Move other place to non-fishing activities")
+    table = transpose_df(table)
+    pander(table, caption = "Actions during low catch periods")   
+    
+```    
+    
+Aiming to get a more dynamic picture of the evolution of the situation during 
+2020, we also asked the community officials about the evolution of prices for
+Nile Perch and Fuel. These impact directly the profitability of fishing 
+activities, at the same time that are the first indication of market disruptions.
+
+
+```{r}    
+ table = data_off %>% select(X.11,X.16,X.17,X.18,X.19,X.20,X.21,X.22,X.23,X.24,X.25,X.26)
+    names(table) = c("Community","Jan","Feb","March","April","May","Jun","Jul","Aug","Sept","Oct","Nov")
+    table[table < 101] = NA
+    pander(table, caption = "Prices of Nile Perch (per kilo for one fish of 50 cm)",  split.table = Inf)
+
+ table = data_off %>% select(X.11,X.27,X.28,X.29,X.30,X.31,X.32)
+    names(table) = c("Community"," < 1 kg.","1-2.5 kg.","2.5-5.0 kg.","5-10 kg.","10-15 kg.",">15 kg.")
+    table[table < 101] = NA
+    pander(table, caption = "Prices of Nile Perch (per kilo)",  split.table = Inf)
+    
+ table = data_off %>% select(X.11,X.33,X.34,X.35,X.36,X.37,X.38,X.39,X.40,X.41,X.42,X.43)
+    names(table) = c("Community","Jan.","Feb.","March.","April","May","June","July","Aug.","Sept.","Oct.","Nov.")
+    table[table < 101] = NA
+    pander(table, caption = "Prices of Fuel (per liter)",  split.table = Inf)    
+    
+ table = data_off %>% select(X.11,X.49,X.50,X.51,X.52,X.53,X.54,X.55,X.56,X.57,X.58,X.59) %>%
+    mutate_at(vars(X.49:X.59), ~ case_when(X.11 == 'Katosi' ~ . * NA, TRUE ~ as.double(.)) ) 
+    names(table) = c("Community","Jan.","Feb.","March.","April","May","June","July","Aug.","Sept.","Oct.","Nov.")
+    pander(table, caption = "Change in water levels with reference with January",  split.table = Inf)    
+
+```
+    
+Finally, we asked officials about the main affectations, and the way in which 
+people from the community reacted to them. 
+    
+```{r} 
+
+  table = data_off %>% select(X.11,X.45,X.46,X.47)
+    names(table) = c("Restrict. to fish", "Restrict. to go outside com", "Restrict. to enter the com.", "No affectations")
+    pander(table, caption = "Restrictions",   split.table = Inf)
+
+ table = data_off %>% select(X.11,X.61,X.62,X.63,X.64,X.65,X.66,X.67,X.68,X.69,X.70,X.71,X.72,X.73,X.74,X.75,X.76)
+    names(table) = c("Community","Nothing","More Fishing trips","Less Fishing trips","farther fishing grounds","Closer fishing grounds",
+                     "More gillnets use","More longlines use","Moved to other landing sites","More Mukene fishing","More Tilapia fishing",
+                     "Other income activites", "More people worked from the household", "Received help from others", "Emigration",
+                     "Inmmigration (return from other places)", "Other reactions")
+    table = transpose_df(table)
+        pander(table, caption = "People actions during COVID",   split.table = Inf)      
+  
+ 
+  
+```
+
+
+# Sociodeomographics
+
+The next tables present the basic demographic information from the people that
+answered our questionnaire. We have mainly men adults with an average age of 37 
+years, and with relative low levels of education as most of them ($63\%$), have 
+not studied above primary school. Household size is on average 5, with some 
+extreme values reporting 20 and 30.  
+
+The question on time fishing aims to get a rough measure of experience, experience 
+could condition their response to the change in fishing conditions. Note that on average
+we have people with experience in their situation. A measure of risk shows a division
+between fishers that are risk averse, and other that are risk seeking (an expected
+trait in fishing communities).
+
+```{r socioedemographics, }
+
+histo.graph(data_com,data_com$X.10,"Age")
+cont.table(data_com,data_com$X.10,"Age")
+
+freq.table(data_com,"X.11","Gender","Gender")
+
+x = c("No schooling", "Incomplete primary","Complete primary","Incomplete O'level","Complete O'level","Incomplete A'level"," Complete A'level")
+data_com = data_com %>% mutate(X.12 = factor(X.12, levels = x)) # Declares factor and uses the level order in the vector 'x'. 
+  freq.table(data_com,"X.12","School","School")
+  
+freq.table(data_com,"X.13","Born in the community","Born Here")
+# freq.table(data_com,"X.14","Place of origin","Origin")
+
+histo.graph(data_com,data_com$X.15,"Size Household")
+cont.table(data_com,data_com$X.15,"Size Household")
+
+# histo.graph(data_com,data_com$X.16,"Time in landing site")
+# cont.table(data_com,data_com$X.16,"Time in landing site")
+
+histo.graph(data_com,data_com$X.17,"Time fishing")
+cont.table(data_com,data_com$X.17,"Time fishing")
+
+freq.table(data_com,"X.18","Willing to take risks")
+
+freq.table(data_com,"X.19","Role")
+freq.table(data_com,"X.20","Number of boats for boat owners")
+freq.table(data_com,"X.21","Do you go fishing? for boat owners")
+
+# table = data_com %>% janitor::tabyl(X.20,X.21) 
+#     pander(table, caption = "Number of boats X go fishing")
+```
+
+# Profile of income activities by period
+
+The next variables provide a profile of the activities during three different 
+time periods in 2020. **January**: before the COVID-19 and the flooding had
+started; **May**: in the peak of mobility restrictions and during high levels 
+of the lake waters (flooding); **November**: the market conditions were still
+affected by COVID-19, and the mobility restrictions were not as strongly
+enforced.
+
+## Household size changes and income activities
+
+The next two graphs show the reported changes in household size. These questions
+aimed to get changes due to migration and emigration of relatives as a way to 
+respond to different conditions on the economic life in the community. Although,
+there are changes, there is no a detectable pattern on any of them. The graph on
+the left show the distribution of answers as a difference from the reported 
+household size in the first section. The graph on the right show the path of 
+changes taking the reported numbers in January as a baseline. 
+
+
+```{r household, fig.width=6, fig.height=4, fig.show="hold", out.width="50%"}
+
+data_com = data_com %>%
+            mutate(Nov_hs = X.22 - X.15) %>%
+            mutate(May_hs = X.23 - X.15) %>%
+            mutate(Jan_hs = X.24 - X.15) %>%
+            mutate(Nov_ch = X.22 - X.24) %>%
+            mutate(May_ch = X.23 - X.24) %>%
+            mutate(Jan_bs = X.24 - X.24)
+
+aux = data_com %>% select(Nov_hs, May_hs, Jan_hs) %>%
+          pivot_longer(c('Nov_hs', 'May_hs', 'Jan_hs'), names_to = 'time', values_to = 'number')
+
+aux %>% ggplot(aes(x=time,y=number,fill=time)) +
+          geom_boxplot() +
+            ggtitle("Household size change by month")
+
+aux2 = data_com %>% select(Nov_ch, May_ch, Jan_bs) %>%
+          filter(May_ch < 10  & May_ch > -10) %>%
+          mutate(id = row_number()) %>%
+          pivot_longer(c('Nov_ch', 'May_ch', 'Jan_bs'), names_to = 'time', values_to = 'number')
+
+aux2 %>% ggplot(aes(x=time,y=number,fill=time)) +
+          geom_point() + geom_line(aes(group=id, color=id)) +
+            ggtitle("Household size change by month (excluding extreme values '> abs(10)'")
+# 
+# cont.table(data_com,data_com$Nov_hs,"Change household size nov")
+# cont.table(data_com,data_com$May_hs,"Change household size may")
+# cont.table(data_com,data_com$Jan_hs,"Change household size jan")
+```
+
+```{r}
+
+data_com %>% filter(May_ch < 10 & May_ch > -10) %>% 
+cont.table(.,.$Nov_ch,"Change Nov. from Jan.")
+
+data_com %>% filter(May_ch < 10 & May_ch > -10) %>% 
+cont.table(.,.$May_ch,"Change May. from Jan.")
+
+# freq.table(data_com,"Nov_ch","Change Nov. from Jan.")
+# freq.table(data_com,"May_ch","Change May. from Jan.")
+
+# Observations 17 and 18th have many more people
+```
+
+The next table summarizes the responses to questions that inquire about the number of
+days that a person engage in several possible activities. This included fishing
+but also other income producing activities. Note the reduction in May for fishing
+activities (taken January as the baseline), and the fact that although the numbers
+grow again in November, they are still below those in January. 
+
+Regarding other types of activities the only activity that increased in May was
+agriculture, and other activities (see tables below for a description of those). 
+Trade activities follow a similar pattern to fishing, a reduction in May, and a 
+increase in November, still below January levels. 
+
+```{r}
+
+table = data_com %>% #filter(X.19 == "Crew member") %>%
+        mutate_at(vars(X.25:X.27,X.29:X.31,X.33:X.35),
+                  ~ case_when(X.19 == 'Boat owner' ~ . * NA,
+                  TRUE ~ as.double(.)) ) %>%
+        select(X.25,X.26,X.27,X.29,X.30,X.31,X.33,X.34,X.35,X.37,X.38,X.39,
+                    X.41,X.42,X.43,X.45,X.46,X.47,X.48,X.49,X.50,X.52,X.53,X.54,
+                    X.56,X.58,X.60) %>% summarise_all(mean, na.rm = TRUE)
+
+
+table = transpose_df(table)
+
+id = matrix(1:3,nrow=27,ncol = 1)
+num = matrix(ceiling((1:27)/3),nrow=27,ncol = 1)
+
+table = table %>% add_column(id = id, num = num) %>%
+                  pivot_wider(names_from = id, id_cols= num, values_from='1')
+
+names(table) = c("Variable","Nov.","May","Jan.")
+
+aux = c("Crew Nile Perch", "Crew Mukene", "Crew Tilapia", 
+        "Boats Nile Perch", "Boats Mukene", "Boats Tilapia",
+        "Agriculture", "Trade", "Other")
+
+table = mutate(table, Variable = aux)
+
+pander(table, round = 2, caption = "Average days in different actitivies")
+
+# freq.table(data_com,"X.57","Other activities in Nov.")
+# freq.table(data_com,"X.59","Other activities in May")
+# freq.table(data_com,"X.61","Other activities in Jan.")
+# 
+# freq.table(data_com,"X.127","November")
+# freq.table(data_com,"X.128","May")
+# freq.table(data_com,"X.129","January")
+# 
+# cont.table(data_com,data_com$X.123,"(Nov.)")
+# cont.table(data_com,data_com$X.124,"(May.)")
+# cont.table(data_com,data_com$X.155,"(Jan.)")
+
+```
+
+## Income from fishing activities
+
+The next graph provide an overview of the average daily income
+for bot owners and crew. When the extreme values are excluded, we can see 
+changes in the payments derived from fishing. There is a clear reduction in May, 
+and a recovery in November. Note that for crew members a recovery of
+income levels in November is not as clear as it seems to be for the boat owners. 
+
+```{r nile perch activities, include = FALSE}
+
+# cont.table(data_com,data_com$X.25,"Days as Nile Perch crew (Nov.)")
+# cont.table(data_com,data_com$X.26,"Days as Nile Perch crew (May.)")
+# cont.table(data_com,data_com$X.27,"Days as Nile Perch crew (Jan.)")
+
+# freq.table(data_com,"X.25","Days as Nile Perch crew (Nov.)")
+# freq.table(data_com,"X.26","Days as Nile Perch crew (May.)")
+# freq.table(data_com,"X.27","Days as Nile Perch crew (Jan.)")
+
+# cont.table(data_com,data_com$X.37,"Days boats fishing Nile Perch (Nov.)")
+# cont.table(data_com,data_com$X.38,"Days boats fishing Nile Perch (May.)")
+# cont.table(data_com,data_com$X.39,"Days boats fishing Nile Perch (Jan.)")
+# REVIEW THIS WITH A FILTER
+
+# freq.table(data_com,"X.62","Paid Fishing Nile Perch -Crew- (Nov)")
+# freq.table(data_com,"X.64","Paid Fishing Nile Perch -Crew- (May)")
+# freq.table(data_com,"X.66","Paid Fishing Nile Perch -Crew- (Jan)")
+
+cont.table(data_com,data_com$X.63,"Amount paid as crew in NP -Crew- (Nov.)")
+cont.table(data_com,data_com$X.65,"Amount paid as crew in NP -Crew- (May.)")
+cont.table(data_com,data_com$X.67,"Amount paid as crew in NP -Crew- (Jan.)")
+
+# freq.table(data_com,"X.83","Paid Fishing Nile Perch -boat owner- (Nov)")
+# freq.table(data_com,"X.85","Paid Fishing Nile Perch -boat owner- (May)")
+# freq.table(data_com,"X.87","Paid Fishing Nile Perch -boat owner- (Jan)")
+
+cont.table(data_com,data_com$X.84,"Amount paid as crew in NP -boat owner- (Nov.)")
+cont.table(data_com,data_com$X.86,"Amount paid as crew in NP -boat owner- (May.)")
+cont.table(data_com,data_com$X.88,"Amount paid as crew in NP -boat owner- (Jan.)")
+
+```
+
+```{r nile perch income crew, fig.width=6, fig.height=4, fig.show="hold", out.width="50%"}
+
+aux = data_com %>% #
+  filter(X.19 == "Crew member") %>% 
+  select(X.63, X.65, X.67) %>%
+          pivot_longer(c('X.63', 'X.65', 'X.67'), names_to = 'time', values_to = 'Shillings')
+
+# aux %>% ggplot() +
+#           geom_density(aes(x=Shillings,y=..density..,fill=time), alpha=0.5) +
+#             ggtitle("Average payment (Crew members) -cap at 50.000 shillings-")
+
+# aux %>% ggplot(aes(x=time,y=Shillings,fill=time)) +
+#           geom_boxplot() +
+#             ggtitle("Average payment (Crew members) -No cap-")+     
+#             scale_x_discrete(labels=c("X.63" = "Nov.", "X.65" = "May",
+#                               "X.67" = "Jan."))+
+#             theme(legend.position = "none")
+
+aux = data_com %>% #
+  filter(X.19 == "Crew member", X.63 < 50000 , X.65 < 50000, X.67 < 50000) %>% 
+  select(X.63, X.65, X.67) %>%
+          pivot_longer(c('X.63', 'X.65', 'X.67'), names_to = 'time', values_to = 'Shillings') 
+# aux %>% ggplot() +
+#           geom_density(aes(x=Shillings,y=..density..,fill=time), alpha=0.5) +
+#             ggtitle("Average payment (Crew members) -cap at 50.000 shillings-")
+
+aux %>% ggplot(aes(x=time,y=Shillings,fill=time)) +
+          geom_boxplot() +
+            ggtitle("Average payment (Crew members) -cap at 50.000 shillings-") +     
+            scale_x_discrete(labels=c("X.63" = "Nov.", "X.65" = "May",
+                              "X.67" = "Jan."))+
+            theme(legend.position = "none")
+
+
+
+aux = data_com %>% #
+  filter(X.19 == "Boat owner") %>% 
+  select(X.84, X.86, X.88) %>%
+          pivot_longer(c('X.84', 'X.86', 'X.88'), names_to = 'time', values_to = 'Shillings')
+
+aux %>% ggplot(aes(x=time,y=Shillings,fill=time)) +
+          geom_boxplot() +
+            ggtitle("Average payment (Boat owners) -No cap-") +     
+            scale_x_discrete(labels=c("X.84" = "Nov.", "X.86" = "May",
+                              "X.88" = "Jan.")) +
+            theme(legend.position = "none")
+
+# aux = data_com %>% #
+#   filter(X.19 == "Boat owner", X.84 < 300000 , X.86 < 300000, X.88 < 300000) %>% 
+#   select(X.84, X.86, X.88) %>%
+#           pivot_longer(c('X.84', 'X.86', 'X.88'), names_to = 'time', values_to = 'Shillings')
+# 
+# 
+# aux %>% ggplot(aes(x=time,y=Shillings,fill=time)) +
+#           geom_boxplot() +
+#             ggtitle("Average payment (Crew members) -cap at 50.000 shillings-") +     
+#             scale_x_discrete(labels=c("X.84" = "Nov.", "X.86" = "May",
+#                               "X.88" = "Jan."))
+
+
+```
+
+## Transfers
+
+The next two graphs present the reports of resources sent to and received by the
+households. The proportion of people that reported receiving and sending resources
+are presented in the bar graphs, and the amounts that were sent or received are
+presented in the box-plots. There a clear pattern of people receiving more often
+and larger resources during May. Regarding transfer sending, we observe a small
+increase in the sending frequency, and a decrease on the amounts sent in May.
+
+```{r transfers_r, fig.width=6, fig.height=4, fig.show="hold", out.width="50%" }
+
+aux = data_com %>% #
+  select(X.153, X.157, X.161) %>%
+          pivot_longer(c('X.153', 'X.157', 'X.161'), names_to = 'time', values_to = 'Transfer')
+
+aux %>% ggplot(aes(x=time,fill=Transfer)) +
+          geom_bar(, position = "dodge") +
+            ggtitle("Received Transfer") +     
+            scale_x_discrete(labels=c("X.153" = "Nov.", "X.157" = "May",
+                              "X.161" = "Jan.")) 
+
+aux = data_com %>% #
+  select(X.164, X.168, X.172) %>%
+          pivot_longer(c('X.164', 'X.168', 'X.172'), names_to = 'time', values_to = 'Transfer')
+
+aux %>% ggplot(aes(x=time,fill=Transfer)) +
+          geom_bar(, position = "dodge") +
+            ggtitle("Sent Transfer") +     
+            scale_x_discrete(labels=c("X.164" = "Nov.", "X.168" = "May",
+                              "X.172" = "Jan.")) 
+
+```
+
+```{r transfer_s , fig.width=6, fig.height=4, fig.show="hold", out.width="50%" }
+aux = data_com %>% 
+  filter(X.154 < 1500000 , X.158 < 1500000, X.162 < 1500000) %>% 
+  select(X.154, X.158, X.162) %>%
+          pivot_longer(c('X.154', 'X.158', 'X.162'), names_to = 'time', values_to = 'Shillings') 
+
+aux %>% ggplot(aes(x=time,y=Shillings,fill=time)) +
+          geom_boxplot() +
+            ggtitle("Average RECEIVED transfer (for those that received something)") +     
+            scale_x_discrete(labels=c("X.154" = "Nov.", "X.158" = "May",
+                              "X.162" = "Jan."))+
+            theme(legend.position = "none")
+
+
+aux = data_com %>% 
+  filter(X.165 < 1000000 , X.169 < 1000000, X.173 < 1000000) %>% 
+  select(X.165, X.169, X.173) %>%
+          pivot_longer(c('X.165', 'X.169', 'X.173'), names_to = 'time', values_to = 'Shillings') 
+
+aux %>% ggplot(aes(x=time,y=Shillings,fill=time)) +
+          geom_boxplot() +
+            ggtitle("Average SENT transfer (for those that sent something)") +     
+            scale_x_discrete(labels=c("X.165" = "Nov.", "X.169" = "May",
+                              "X.173" = "Jan."))+
+            theme(legend.position = "none")
+
+```
+
+
+```{r, include=FALSE}
+
+freq.table(data_com,"X.153","Received resources (Nov)")
+cont.table(data_com,data_com$X.154,"amount (Nov.)")
+freq.table(data_com,"X.155","due to very low income (Nov)")
+
+freq.table(data_com,"X.157","Received resources (May)")
+cont.table(data_com,data_com$X.158,"amount (May.)")
+freq.table(data_com,"X.159","due to very low income (May)")
+
+freq.table(data_com,"X.161","Received resources (Jan)")
+cont.table(data_com,data_com$X.162,"amount (Jan.)")
+freq.table(data_com,"X.163","due to very low income (Jan)")
+
+freq.table(data_com,"X.164","Sent resources (Nov)")
+cont.table(data_com,data_com$X.165,"amount (Nov.)")
+freq.table(data_com,"X.166","due to very low income (Nov)")
+
+freq.table(data_com,"X.168","Sent resources (May)")
+cont.table(data_com,data_com$X.169,"amount (May.)")
+freq.table(data_com,"X.170","due to very low income (May)")
+
+freq.table(data_com,"X.172","Received resources (Jan)")
+cont.table(data_com,data_com$X.173,"amount (Jan.)")
+freq.table(data_com,"X.174","due to very low income (Jan)")
+
+```
+
+## Opportunity costs
+
+Opportunity cost questions aims to create a baseline that help us compare the 
+amount of resources that people get from fishing activities in normal periods, with
+the reports that they provide of their activities and their income during the 
+months of January, May and November. This analysis is pending. 
+We asked for High and Low catch seasons. Note that are clear differences in 
+the expected income from fishing activities between the two periods. There are
+outliers that should be consider and properly recognized to get a better
+understanding of the data. 
+
+```{r opportunity costs, fig.width=6, fig.height=4, fig.show="hold", out.width="50%"}
+
+aux = data_com %>% #
+  filter(X.19 == "Crew member") %>% 
+  select(X.175, X.176) %>%
+          pivot_longer(c('X.175', 'X.176'), names_to = 'Period', values_to = 'Shillings')
+
+aux %>% ggplot(aes(x=Shillings,fill=Period)) +
+          geom_density(alpha=0.5) +
+            ggtitle("Opportunity costs (Crew members) - no cap -")+
+            scale_fill_discrete(name = "Season", labels = c("High", "Low"))
+
+aux = data_com %>% #
+  filter(X.19 == "Boat owner") %>% 
+  select(X.177, X.178) %>%
+          pivot_longer(c('X.177', 'X.178'), names_to = 'Period', values_to = 'Shillings')
+
+aux %>% ggplot(aes(x=Shillings,fill=Period)) +
+          geom_density(alpha=0.5) +
+            ggtitle("Opportunity costs, per boat (Boat owners) - no cap -")+
+            scale_fill_discrete(name = "Season", labels = c("High", "Low"))
+
+aux = data_com %>% #
+  filter(X.19 == "Crew member", X.175 < 1000000, X.176 < 1000000) %>% 
+  select(X.175, X.176) %>%
+          pivot_longer(c('X.175', 'X.176'), names_to = 'Period', values_to = 'Shillings')
+
+aux %>% ggplot(aes(x=Period,y=Shillings,fill=Period)) +
+          geom_boxplot() +
+            ggtitle("Opportunity costs (Crew members) -cap at 1.000.000 shillings-")+
+            scale_x_discrete(labels=c("X.175" = "High season", "X.176" = "Low season"))+
+            theme(legend.position = "none")
+
+
+aux = data_com %>% #
+  filter(X.19 == "Boat owner", X.177 < 1000000, X.178 < 1000000) %>% 
+  select(X.177, X.178, X.20) %>%
+  mutate(X.177 = X.177 / X.20, X.178 = X.178 / X.20) %>%
+          pivot_longer(c('X.177', 'X.178'), names_to = 'Period', values_to = 'Shillings')
+
+aux %>% ggplot(aes(x=Period,y=Shillings,fill=Period)) +
+          geom_boxplot() +
+            ggtitle("Opportunity costs (Boat owners) -cap at 1.000.000 shillings-")  +     
+            scale_x_discrete(labels=c("X.177" = "High season", "X.178" = "Low season")) +
+            theme(legend.position = "none")
+
+
+```
+
+# Fishing Activities
+
+The following graph provide a more detailed information about the number of days
+that crew members reported going fishing. Note that the only month in which some
+of them reported completely stopping was on May. 
+
+```{r}
+
+aux = data_com %>% #
+  filter(X.19 == "Crew member") %>% 
+  select(X.183, X.184, X.185) %>%
+          pivot_longer(c('X.183', 'X.184', 'X.185'), names_to = 'Period', values_to = 'Days')
+
+aux %>% ggplot(aes(x=Days,fill=Period)) +
+          geom_bar(alpha=0.9, position = "dodge") +
+            ggtitle("Days fishing (Crew members)")+
+            scale_fill_discrete(name = "Period", labels = c("Nov.", "May", "Jan."))
+
+
+```
+
+
+```{r tables, include=FALSE}
+
+names = c("Paddle","Sail","Eng. (smll)","Eng. (mdm)","Eng. (lrg)")
+
+    table1 = data_com %>% select(X.187,X.188,X.189,X.190,X.191) %>%
+      summarise_all(sum, na.rm = TRUE)
+      names(table1) = names
+    
+    table2 = data_com %>% select(X.208,X.209,X.210,X.211,X.212) %>%
+      summarise_all(sum, na.rm = TRUE)
+      names(table2) = names
+                
+    table3 = data_com %>% select(X.229,X.230,X.231,X.232,X.233) %>%
+      summarise_all(sum, na.rm = TRUE)
+      names(table3) = names
+    
+    table = bind_rows(table1, table2, table3)
+      
+    rownames(table) = c("Nov.", "May", "Jan.")
+    
+    table = transpose_df(table)
+
+  pander(table, caption = "Type of vessels")
+
+
+names = c("Seine nets","Gillnets","Longlines")
+
+    table1 = data_com %>% select(X.199,X.200,X.201) %>%
+      summarise_all(sum, na.rm = TRUE)
+      names(table1) = names
+    
+    table2 = data_com %>% select(X.220,X.221,X.222) %>%
+      summarise_all(sum, na.rm = TRUE)
+      names(table2) = names
+                
+    table3 = data_com %>% select(X.241,X.242,X.243) %>%
+      summarise_all(sum, na.rm = TRUE)
+      names(table3) = names
+    
+    table = bind_rows(table1, table2, table3)
+      
+    rownames(table) = c("Nov.", "May", "Jan.")
+    
+    table = transpose_df(table)
+  
+  pander(table, caption = "Fishing craft")
+
+```
+
+## Catch
+
+The following tables report the sizes and amounts of Nile Perch captured by size.
+Notice that the amounts reported are in general lower during the month of May. After
+that the following table present the distribution of prices reported by fishers
+by period and category size, there are clear patterns here. 
+
+### Sizes targeted
+
+```{r}
+
+names = c(" < 1 kg.","1 - 2.5 kg.","2.5 - 5.0 kg.","5 - 10 kg.","10 - 15 kg."," > 15 kg.")
+
+    table1 = data_com %>% select(X.250,X.251,X.252,X.253,X.254,X.255) %>%
+      summarise_all(sum, na.rm = TRUE)
+      names(table1) = names
+    
+    table2 = data_com %>% select(X.258,X.259,X.260,X.261,X.262,X.263) %>%
+      summarise_all(sum, na.rm = TRUE)
+      names(table2) = names
+                
+    table3 = data_com %>% select(X.266,X.267,X.268,X.269,X.270,X.271) %>%
+      summarise_all(sum, na.rm = TRUE)
+      names(table3) = names
+    
+    table = bind_rows(table1, table2, table3)
+      
+    rownames(table) = c("Nov.", "May", "Jan.")
+    
+    table = transpose_df(table)
+
+  pander(table, caption = "Capture sizes (number of boats targeting each size)")
+
+
+```
+
+### Amounts
+
+```{r}
+
+table = data_com %>% select(X.273,X.274,X.275,X.278,X.279,X.280,
+                            X.283,X.284,X.285,X.288,X.289,X.290,
+                            X.293,X.294,X.295,X.298,X.299,X.300) %>% 
+                      filter_all(all_vars(. < 10000 | is.na(.))) %>%
+                      summarise_all(sum, na.rm = TRUE)
+
+transpose_df <- function(df) {
+  t_df <- data.table::transpose(df)
+  colnames(t_df) <- rownames(df)
+  rownames(t_df) <- colnames(df)
+  t_df <- t_df %>%
+    tibble::rownames_to_column(.data = .) %>%
+    tibble::as_tibble(.)
+  return(t_df)
+}
+
+table = transpose_df(table)
+
+id = matrix(1:3,nrow=18,ncol = 1)
+num = matrix(ceiling((1:18)/3),nrow=18,ncol = 1)
+
+table = table %>% add_column(id = id, num = num) %>%
+                  pivot_wider(names_from = id, id_cols= num, values_from='1')
+
+names(table) = c("Variable","Nov","May","Jan")
+
+aux = c(" < 1 kg.","1 - 2.5 kg.","2.5 - 5.0 kg.","5 - 10 kg.","10 - 15 kg."," > 15 kg.")
+
+table = mutate(table, Variable = aux)
+
+pander(table, round = 2, caption = "Average weight captured by sample (all reports)")
+
+```
+
+```{r}
+
+table = data_com %>% select(X.273,X.274,X.275,X.278,X.279,X.280,
+                            X.283,X.284,X.285,X.288,X.289,X.290,
+                            X.293,X.294,X.295,X.298,X.299,X.300) %>% 
+                      filter_all(all_vars(. < 100 | is.na(.))) %>%
+                      summarise_all(sum, na.rm = TRUE)
+
+transpose_df <- function(df) {
+  t_df <- data.table::transpose(df)
+  colnames(t_df) <- rownames(df)
+  rownames(t_df) <- colnames(df)
+  t_df <- t_df %>%
+    tibble::rownames_to_column(.data = .) %>%
+    tibble::as_tibble(.)
+  return(t_df)
+}
+
+table = transpose_df(table)
+
+id = matrix(1:3,nrow=18,ncol = 1)
+num = matrix(ceiling((1:18)/3),nrow=18,ncol = 1)
+
+table = table %>% add_column(id = id, num = num) %>%
+                  pivot_wider(names_from = id, id_cols= num, values_from='1')
+
+names(table) = c("Variable","Nov","May","Jan")
+
+aux = c(" < 1 kg.","1 - 2.5 kg.","2.5 - 5.0 kg.","5 - 10 kg.","10 - 15 kg."," > 15 kg.")
+
+table = mutate(table, Variable = aux)
+
+pander(table, round = 2, caption = "Average weight captured by sample (below 100 kg reports)")
+
+```
+
+### Reported priced per size
+
+```{r}
+
+aux = data_com %>% select(X.302,X.303,X.304,X.307,X.308,X.309,
+                          X.312,X.313,X.314,X.317,X.318,X.319,
+                          X.322,X.323,X.324,X.327,X.328,X.329) %>%
+                    rename(A.Nov = X.302, A.May = X.303, A.Jan = X.304, B.Nov = X.307, B.May = X.308, B.Jan = X.309,
+                           C.Nov = X.312, C.May = X.313, C.Jan = X.314, D.Nov = X.317, D.May = X.318, D.Jan = X.319,
+                           E.Nov = X.322, E.May = X.323, E.Jan = X.324, F.Nov = X.327, F.May = X.328, F.Jan = X.329) %>%
+                    pivot_longer(everything(),
+                                 names_to = c(".value","Month"),
+                                 names_sep = 2
+                                 ) %>%
+                    rename("a. < 1 kg." = "A.","b. 1 - 2.5 kg." = "B.","c. 2.5 - 5.0 kg." = "C.",
+                           "d. 5 - 10 kg." = "D.","e. 10 - 15 kg." = "E.","f. > 15 kg." = "F.") %>%
+                    pivot_longer(!Month, names_to = "category", values_to = "shillings" )
+
+
+ggplot(aux, aes(x=category, y=shillings, color = Month)) +
+        geom_boxplot() + ggtitle("Reported prices per kilo by size category and month")
+  
+
+```
+
+## Time in the lake.
+
+The next table present the time people spent into the lake. There are two main
+groups of fishers, some take long periods in the lake (more than 12 hours), and
+other go for less time. Note that the pattern changed in May and November
+as compared to January; with and increase in the group that go for shorter
+fishing trips. 
+
+```{r , fig.width=6, fig.height=4, fig.show="hold", out.width="50%", include=FALSE}
+
+aux = data_com %>% #filter(X.201 == 0, X.200 == 1) %>%
+            mutate(a3 = substr(X.330, 1, 8), b3 = substr(X.331, 1, 8),
+                   a2 = substr(X.335, 1, 8), b2 = substr(X.336, 1, 8),
+                   a1 = substr(X.340, 1, 8), b1 = substr(X.341, 1, 8)) %>%
+            mutate(ai3 = substr(X.344, 1, 8), bi3 = substr(X.345, 1, 8),
+                   ai2 = substr(X.349, 1, 8), bi2 = substr(X.350, 1, 8),
+                   ai1 = substr(X.354, 1, 8), bi1 = substr(X.355, 1, 8)) %>%
+            mutate(dep.nov = hms(coalesce(ai3,a3)), arr.nov = hms(coalesce(bi3,b3)),
+                   dep.may = hms(coalesce(ai2,a2)), arr.may = hms(coalesce(bi2,b2)),
+                   dep.jan = hms(coalesce(ai1,a1)), arr.jan = hms(coalesce(bi1,b1)),
+                   aux = hms(hms::hms(hours = 24))) %>%
+            mutate(diff.nov = if_else(arr.nov > dep.nov, arr.nov - dep.nov , (aux - dep.nov) + arr.nov),
+                        dp.nov = as.numeric(dep.nov), ar.nov = as.numeric(arr.nov), df.nov = as.numeric(diff.nov),
+                   diff.may = if_else(arr.may > dep.may, arr.may - dep.may , (aux - dep.may) + arr.may),
+                        dp.may = as.numeric(dep.may), ar.may = as.numeric(arr.may), df.may = as.numeric(diff.may),
+                   diff.jan = if_else(arr.jan > dep.jan, arr.jan - dep.jan , (aux - dep.jan) + arr.jan),
+                        dp.jan = as.numeric(dep.jan), ar.jan = as.numeric(arr.jan), df.jan = as.numeric(diff.jan),
+                   tm.nov = df.nov/60 - X.346, tm.may = df.may/60 - X.351, tm.jan = df.jan/60 - X.356, ) %>%
+            select(dp.nov, ar.nov, df.nov, dp.may, ar.may, df.may, dp.jan, ar.jan, df.jan, tm.nov, tm.may, tm.jan) %>%
+            pivot_longer(everything(),
+                                 names_to = c(".value","Month"),
+                                 names_sep = 3
+                                 ) 
+
+ggplot(aux, aes(x = dp./3600)) + geom_density( aes(color = Month),  position = "dodge") + ggtitle("Departure") + xlab("Time (24h) ")
+ggplot(aux, aes(x = ar./3600)) + geom_density( aes(color = Month),  position = "dodge") + ggtitle("Arrival") + xlab("Time (24h)")
+
+```
+
+```{r}
+
+ggplot(aux, aes(x = df./3600)) + geom_density( aes(color = Month),  position = "dodge") + ggtitle("Total time in the lake") +
+  xlab("Time (hours)")
+
+# ggplot(aux, aes(x = tm./60)) + geom_density( aes(color = Month),  position = "dodge") + ggtitle("Total time Fishing in the lake") +
+#   xlab("Time (hours)")
+  
+```
+
+
+
+```{r, include=FALSE}
+
+
+ data_com %>%    
+            select(X.346, X.351, X.356) %>%
+            rename(time.nov = X.346, time.may = X.351, time.jan = X.356) %>%
+            pivot_longer(everything(),
+                                 names_to = c(".value","Month"),
+                                 names_sep = 5
+                                 ) %>%
+            ggplot(.) + geom_density( aes(x = time./60 , color = Month)) + ggtitle("Time to fishing ground") + xlab("Hours")
+
+```
+
+## Migration patterns
+
+Although the number of people that reported moving to another landing site is not
+very high, some patterns are discernible. It is clear that some boat owners did 
+it in January but completely stopped the next months; and that for the crew, 
+there is an increase in the activity in November, and a decrease in May. 
+
+```{r movements, fig.width=6, fig.height=4, fig.show="hold", out.width="50%" }
+
+aux = data_com %>% filter(X.19 == 'Crew member') %>%
+  select(X.366, X.369, X.372) %>%
+          pivot_longer(c('X.366', 'X.369', 'X.372'), names_to = 'time', values_to = 'Transfer')
+
+aux %>% ggplot(aes(x=time,fill=Transfer)) +
+          geom_bar(, position = "dodge") +
+            ggtitle("Moved to another landing site -crew member-") +     
+            scale_x_discrete(labels=c("X.366" = "Nov.", "X.369" = "May",
+                              "X.372" = "Jan.")) 
+
+aux = data_com %>% filter(X.19 == 'Boat owner') %>%
+  select(X.358, X.361, X.364) %>%
+          pivot_longer(c('X.358', 'X.361', 'X.364'), names_to = 'time', values_to = 'Transfer')
+
+aux %>% ggplot(aes(x=time,fill=Transfer)) +
+          geom_bar(, position = "dodge") +
+            ggtitle("Moved to another landing site -boat owner-") +     
+            scale_x_discrete(labels=c("X.358" = "Nov.", "X.361" = "May",
+                              "X.364" = "Jan.")) 
+
+```
+
+
+```{r, include=FALSE}
+
+# aux = data_com %>% select(X.359,X.362,X.365,X.367,X.370,X.373) %>%
+#               mutate(Nov = coalesce(X.359,X.367), May = coalesce(X.362,X.370),
+#                      Jan = coalesce(X.365,X.373))
+# 
+# cont.table(aux,aux$Nov,"Days in other landing site (November)")
+# cont.table(aux,aux$May,"Days in other landing site (May)")
+# cont.table(aux,aux$Jan,"Days in other landing site (January)")
+# 
+# 
+# cont.table(data_com,data_com$X.359,"Days in other landing site (November)")
+# cont.table(data_com,data_com$X.362,"Days in other landing site (May)")
+# cont.table(data_com,data_com$X.365,"Days in other landing site (January)")
+# 
+
+# cont.table(data_com,data_com$X.367,"Days in other landing site (November)")
+# cont.table(data_com,data_com$X.370,"Days in other landing site (May)")
+# cont.table(data_com,data_com$X.373,"Days in other landing site (January)")
+
+freq.table(data_com,"X.374","boats locations, fishing ground, owners")
+freq.table(data_com,"X.375","boats locations, fishing ground, crew")
+freq.table(data_com,"X.376","boats locations")
+
+freq.table(data_com,"X.366","Nov - crew")
+freq.table(data_com,"X.369","May - crew")
+freq.table(data_com,"X.372","Jan - crew")
+
+freq.table(data_com,"X.358","Nov - boat")
+freq.table(data_com,"X.361","May - boat")
+freq.table(data_com,"X.364","Jan - boat")
+
+
+```
+
+# Reactions to price changes
+
+These two question aims to understand what type of reaction people would take to
+changes in prices. This is important as most of the market affectations will be 
+reflected in prices, but occur at the same time and its mixed with the changes in
+physical conditions due to the flooding. These questions would help us understand 
+better the reaction of the fishers. 
+
+```{r}
+
+table1 = data_com %>% filter(X.19 == "Crew member") %>% 
+  select(X.385,X.386,X.387,X.388,X.389,X.390,X.391,X.392,
+                            X.393,X.394,X.395) %>% summarise_all(mean, na.rm = TRUE)
+
+table2 = data_com %>% filter(X.19 == "Boat owner") %>% 
+  select(X.385,X.386,X.387,X.388,X.389,X.390,X.391,X.392,
+                            X.393,X.394,X.395) %>% summarise_all(mean, na.rm = TRUE)
+
+table3 = data_com %>%  
+  select(X.385,X.386,X.387,X.388,X.389,X.390,X.391,X.392,
+                            X.393,X.394,X.395) %>% summarise_all(mean, na.rm = TRUE)
+
+table = bind_rows(table1, table2, table3)
+
+table = transpose_df(table)
+
+names(table) = c("Variable","Crew", "Owner", "All")
+
+aux = c("nothing", "more fishing trips", "less fishing trips", 
+        "go fishing farther", "go fishing closer", "go other landing sites",
+        "more gillnets use", "more longlines use", "less engines",
+        "other income activities", "ask for help")
+
+table = mutate(table, Variable = aux)
+
+pander(table, round = 2, caption = "Actions if price NP increases 50%")
+```
+
+```{r}
+
+table1 = data_com %>% filter(X.19 == "Crew member") %>% 
+          select(X.397,X.398,X.399,X.400,X.401,X.402,X.403,X.404,
+                            X.405,X.406,X.407) %>% summarise_all(mean, na.rm = TRUE)
+
+table2 = data_com %>% filter(X.19 == "Boat owner") %>% 
+          select(X.397,X.398,X.399,X.400,X.401,X.402,X.403,X.404,
+                            X.405,X.406,X.407) %>% summarise_all(mean, na.rm = TRUE)
+
+table3 = data_com %>%  
+          select(X.397,X.398,X.399,X.400,X.401,X.402,X.403,X.404,
+                            X.405,X.406,X.407) %>% summarise_all(mean, na.rm = TRUE)
+
+table = bind_rows(table1, table2, table3)
+
+table = transpose_df(table)
+
+names(table) = c("Variable","Crew", "Owner", "All")
+
+aux = c("nothing", "more fishing trips", "less fishing trips", 
+        "go fishing farther", "go fishing closer", "go other landing sites",
+        "more gillnets use", "more longlines use", "less engines",
+        "other income activities", "ask for help")
+
+table = mutate(table, Variable = aux)
+
+pander(table, round = 2, caption = "Actions if price fuel increases 50%")
+```
+
+# Perception and quality check.
+
+The last questions deal with the perception that fishers have of the events in 
+the last year: how their fishing activities were affected, their general discernment
+of the changes, as well as their perception of the changes in the state of the 
+fish stock. A question for the interviewer was added at the end to have an idea
+of the quality of the answer they obtained. 
+
+```{r}
+freq.table(data_com,"X.381","How was November for fishing?")
+freq.table(data_com,"X.382","How was May for fishing?")
+freq.table(data_com,"X.383","How was January for fishing?")
+
+freq.table(data_com,"X.408","COVID19 lead to more or less Nile Perch")
+freq.table(data_com,"X.409","Flood lead to more or less Nile Perch")
+
+freq.table(data_com,"X.410","Personal affectation")
+
+freq.table(data_com,"X.411","Quality Interviewee")
+
+```
+
+
+<!-- # Notes -->
+
+<!-- The main point collaborate on the results, of the other team. -->
+
+<!-- - -->
+<!-- Suggestions: -->
+
+<!-- 1. Need to research gaps, new ideas for research proposal. -->
+<!-- 2. National and regional proposal. -->
+<!-- 3. Publications, rotational in leading convey.  -->
+<!-- 4. Training, for example in data analysis. -->
+<!-- 5. Scientific training and presentation. -->
+<!-- 6. Exchange visits. -->
+<!-- 7. Classroom update ourselves. One or two in a month.  -->
+
+
+
+
